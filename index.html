@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>3D Scene Recorder</title>
+    <style>
+        body { margin: 0; }
+        canvas { display: block; }
+        #recordButton {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            background-color: #4CAF50;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        #recordButton:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+            background-color: #45a049;
+        }
+        #recordButton:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 8px rgba(76, 175, 80, 0.4);
+        }
+        #recordButton.recording {
+            background-color: #ff4444;
+        }
+        #recordButton.recording:hover {
+            box-shadow: 0 4px 12px rgba(255, 68, 68, 0.4);
+            background-color: #ff5555;
+        }
+        #progressContainer {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            text-align: center;
+            z-index: 1000;
+        }
+        
+        #progressText {
+            color: #4CAF50;
+            margin-bottom: 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        
+        #progressBar {
+            width: 100%;
+            max-width: 800px;
+            height: 20px;
+            background: #444;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 0 auto;
+        }
+        
+        #progressBar div {
+            width: 0%;
+            height: 100%;
+            background: #4CAF50;
+            transition: width 0.3s;
+        }
+
+        #videoPlayer {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 10px;
+            z-index: 2000;
+            backdrop-filter: blur(5px);
+        }
+
+        #videoPlayer video {
+            max-width: 90vw;
+            max-height: 80vh;
+            border-radius: 5px;
+        }
+
+        #closeVideo {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: white;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 24px;
+            z-index: 2001;
+            text-shadow: 0 0 3px rgba(0,0,0,0.5);
+        }
+
+        /* 添加遮罩层 */
+        #overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(2px);
+            z-index: 1999;
+        }
+
+        /* 录制控制区域容器 */
+        .recording-controls {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 12px;
+            backdrop-filter: blur(5px);
+            color: white;
+        }
+
+        /* 录制按钮和时间显示 */
+        #recordingStatus {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            position: static;
+            transform: none;
+        }
+
+        #recordButton {
+            position: static;
+            transform: none;
+            min-width: 120px;
+        }
+
+        #recordingTime {
+            color: white;
+            font-family: monospace;
+            font-size: 16px;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        /* 录制设置区域 */
+        #recordingSettings {
+            position: static;
+            transform: none;
+            background: none;
+            padding: 0;
+            font-size: 14px;
+        }
+
+        #qualitySelect, #maxDuration {
+            background: rgba(44, 62, 80, 0.9);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 14px;
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            cursor: pointer;
+        }
+
+        #maxDuration {
+            width: 60px;
+            text-align: center;
+        }
+
+        /* 预览区域样式 */
+        .recordingPreview {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+
+        .preview-image {
+            width: 120px !important;
+            height: 68px !important;
+            flex-shrink: 0;
+            margin: 0 !important;
+        }
+
+        .preview-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .preview-info .title {
+            font-size: 14px !important;
+            margin-bottom: 4px !important;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .preview-info .details {
+            font-size: 12px !important;
+            margin-bottom: 0 !important;
+            opacity: 0.8;
+        }
+
+        .preview-actions {
+            display: flex !important;
+            gap: 4px !important;
+            justify-content: flex-start !important;
+            margin-top: 8px;
+        }
+
+        .preview-btn {
+            width: 28px !important;
+            height: 28px !important;
+            padding: 0 !important;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px !important;
+            flex: 0 0 auto !important;
+        }
+
+        /* 美化按钮样式 */
+        .preview-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .preview-btn {
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            border: none;
+            border-radius: 4px;
+            flex: 0 0 auto;
+        }
+
+        .play-btn {
+            background: linear-gradient(145deg, #4CAF50, #45a049);
+            color: white;
+            box-shadow: 0 2px 4px rgba(76, 175, 80, 0.3);
+            font-size: 16px;
+        }
+
+        .play-btn:hover {
+            background: linear-gradient(145deg, #45a049, #4CAF50);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(76, 175, 80, 0.4);
+        }
+
+        .download-btn {
+            background: linear-gradient(145deg, #2196F3, #1e88e5);
+            color: white;
+            box-shadow: 0 2px 4px rgba(33, 150, 243, 0.3);
+            font-size: 20px;
+        }
+
+        .download-btn:hover {
+            background: linear-gradient(145deg, #1e88e5, #2196F3);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(33, 150, 243, 0.4);
+        }
+
+        /* 修改下拉选项的样式 */
+        #qualitySelect option {
+            background-color: #2c3e50;  /* 深色背景 */
+            color: white;  /* 白色文字 */
+            padding: 8px;  /* 增加内边距 */
+        }
+
+        /* 修改下拉框激活时的样式 */
+        #qualitySelect:focus {
+            outline: none;
+            border-color: #4CAF50;
+            box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+        }
+
+        /* 修改数字输入框激活时的样式 */
+        #maxDuration:focus {
+            outline: none;
+            border-color: #4CAF50;
+            box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+        }
+
+        /* 添加模型选择面板的样式 */
+        .model-panel {
+            position: fixed;
+            right: 20px;
+            top: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 12px;
+            backdrop-filter: blur(5px);
+            color: white;
+            z-index: 100;
+            width: 200px;
+        }
+
+        .model-panel h3 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            color: #4CAF50;
+        }
+
+        .model-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .model-item {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .model-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .model-item.active {
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3);
+        }
+
+        .model-icon {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-right: 10px;
+        }
+
+        .model-name {
+            font-size: 14px;
+        }
+
+        #subtitleCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 9999;  /* 确保在最上层 */
+        }
+
+        .delete-btn {
+            background: linear-gradient(145deg, #dc3545, #c82333);
+            color: white;
+            box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+            font-size: 24px;
+        }
+
+        .delete-btn:hover {
+            background: linear-gradient(145deg, #c82333, #dc3545);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
+        }
+
+        /* 自定义光标样式 */
+        body {
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="%23cccccc" stroke-width="2"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="%23cccccc"/></svg>') 36 36, auto;
+        }
+
+        /* 可点击元素的光标样式 */
+        button, 
+        .model-item,
+        #qualitySelect,
+        #maxDuration {
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="%2345a049" stroke-width="2"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="%2345a049"/></svg>') 36 36, pointer;
+        }
+
+        /* 添加左侧作品列表栏样式 */
+        .videos-panel {
+            position: fixed;
+            left: 20px;
+            top: 20px;
+            bottom: 20px;
+            width: 300px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 12px;
+            backdrop-filter: blur(5px);
+            color: white;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .videos-panel h3 {
+            margin: 0;
+            padding: 15px;
+            font-size: 16px;
+            color: #4CAF50;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .videos-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        /* 修改预览卡片样式以适应侧栏 */
+        .recordingPreview {
+            flex-direction: column;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+
+        .preview-image {
+            width: 100%;
+            height: 150px;
+            margin-bottom: 10px;
+        }
+
+        .preview-info {
+            width: 100%;
+        }
+
+        .preview-actions {
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .preview-btn {
+            flex: 1;
+            min-width: 80px;
+            padding: 6px 12px;
+        }
+
+        /* 添加滚动条样式 */
+        .videos-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .videos-list::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        .videos-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+        }
+
+        .videos-list::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Split.js 相关样式 */
+        .split-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+        }
+
+        .split {
+            display: flex;
+        }
+
+        .gutter {
+            background-color: rgba(255, 255, 255, 0.1);
+            background-repeat: no-repeat;
+            background-position: 50%;
+        }
+
+        .gutter.gutter-horizontal {
+            background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAeCAYAAADkftS9AAAAIklEQVQoU2M4c+bMfxAGAgYYmwGrIIiDjrELjpo5aiZeMwF+yNnOs5KSvgAAAABJRU5ErkJggg==');
+            cursor: col-resize;
+        }
+
+        /* 调整面板样式 */
+        #leftPanel, #rightPanel {
+            background: transparent;
+            min-width: 300px;
+            max-width: 400px;
+        }
+
+        #gameScene {
+            flex: 1;
+            position: relative;
+            min-width: 800px;
+        }
+
+        .videos-panel, .model-panel {
+            position: relative;
+            height: 100%;
+            margin: 20px;
+        }
+
+        /* 聊天面板样式 */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 12px;
+            backdrop-filter: blur(5px);
+            color: white;
+            margin: 20px;
+        }
+
+        .chat-container h3 {
+            margin: 0;
+            padding: 15px;
+            font-size: 16px;
+            color: #4CAF50;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .chat-message {
+            max-width: 85%;
+            padding: 10px;
+            border-radius: 8px;
+            word-break: break-word;
+        }
+
+        .chat-message.user {
+            align-self: flex-end;
+            background: rgba(76, 175, 80, 0.3);
+            margin-left: 15%;
+        }
+
+        .chat-message.assistant {
+            align-self: flex-start;
+            background: rgba(255, 255, 255, 0.1);
+            margin-right: 15%;
+        }
+
+        .chat-input-container {
+            padding: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .input-wrapper {
+            position: relative;
+            width: 100%;
+        }
+
+        .model-labels {
+            position: absolute;
+            top: -30px;
+            left: 0;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .selected-model-label {
+            padding: 4px 10px;
+            background-color: rgba(76, 175, 80, 0.2);
+            border-radius: 4px;
+            font-size: 14px;
+            color: #fff;
+            display: none;
+            white-space: nowrap;
+        }
+
+        .chat-input-container textarea {
+            width: 100%;
+        }
+
+        .chat-input-container .chat-send-btn {
+            align-self: flex-end;
+        }
+
+        #chatInput {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            border-radius: 6px;
+            padding: 10px;
+            color: white;
+            resize: none;
+            font-family: inherit;
+        }
+
+        #chatInput:focus {
+            outline: none;
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .chat-send-btn {
+            background: linear-gradient(145deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 0 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .chat-send-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(76, 175, 80, 0.3);
+        }
+
+        .message-commands {
+            margin-top: 4px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .message-commands summary {
+            cursor: pointer;
+            user-select: none;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 14px;
+        }
+
+        .message-commands summary:hover {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .command-text {
+            margin: 2px 0;
+            padding: 4px 8px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        /* 调整折叠箭头样式 */
+        .message-commands summary::-webkit-details-marker {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        .message-commands[open] summary::-webkit-details-marker {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .implicit-info {
+            margin: 4px 0;
+        }
+
+        .info-type {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            margin-right: 4px;
+        }
+
+        .message-commands {
+            margin-top: 4px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .message-commands summary {
+            cursor: pointer;
+            user-select: none;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 14px;
+        }
+
+        .command-text {
+            margin: 2px 0;
+            padding: 4px 8px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .chat-message.system {
+            align-self: center;
+            margin: 4px 0;
+            background: transparent;
+        }
+
+        .system-message {
+            background: rgba(76, 175, 80, 0.2);
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.85);
+            font-weight: normal;
+        }
+
+        .message-commands {
+            margin-top: 4px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+    </style>
+    <!-- 首先加载基础库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- Three.js 扩展 -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
+    <script src="https://mrdoob.github.io/stats.js/build/stats.min.js"></script>
+    <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/fflate.min.js"></script>
+    
+    <!-- 然后加载其他工具库 -->
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/split.js/1.6.5/split.min.js"></script>
+    
+    <!-- RPM 配置 -->
+    <script>
+        window.RPM = {
+            subdomain: 'olet.readyplayer.me',
+            appId: '675dbac2d50a553383ba8fbd'
+        };
+    </script>
+    <script src="https://studio.readyplayer.me/assets/1.4.1-rc.0/iframe.js"></script>
+</head>
+<body>
+    <div class="split-container">
+        <!-- 左侧作品列表 -->
+        <div class="split split-horizontal" id="leftPanel">
+            <div class="videos-panel">
+                <h3>录制作品</h3>
+                <div class="videos-list"></div>
+                <div id="progressContainer">
+                    <div id="progressText"></div>
+                    <div id="progressBar"><div></div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 中间游戏场景 -->
+        <div class="split split-horizontal" id="gameScene">
+            <!-- Three.js 渲染器会在这里添加 canvas -->
+            <canvas id="subtitleCanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999;"></canvas>
+            <div class="recording-controls">
+                <div id="recordingStatus">
+                    <button id="recordButton">开始录制</button>
+                    <span id="recordingTime" style="display: none">00:00</span>
+                </div>
+                <div id="recordingSettings">
+                    <select id="qualitySelect">
+                        <option value="high">高质量 (8Mbps)</option>
+                        <option value="medium" selected>中等 (5Mbps)</option>
+                        <option value="low">较好 (2.5Mbps)</option>
+                    </select>
+                    <input type="number" id="maxDuration" value="300" min="10" max="600" step="10">
+                    <span>秒</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧模型选择 -->
+        <div class="split split-horizontal" id="rightPanel">
+            <div class="model-panel">
+                <h3>选择模型</h3>
+                <div class="model-list">
+                    <!-- 模型列表 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧聊天面板 -->
+        <div class="split split-horizontal" id="chatPanel">
+            <div class="chat-container">
+                <h3>AI 助手</h3>
+                <div class="chat-messages" id="chatMessages"></div>
+                <div class="chat-input-container">
+                    <div class="input-wrapper">
+                        <div class="model-labels">
+                            <div id="selectedModelLabel" class="selected-model-label"></div>
+                        </div>
+                        <textarea id="chatInput" placeholder="输入消息..." rows="3"></textarea>
+                    </div>
+                    <button id="sendMessage" class="chat-send-btn">发送</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 视频播放器和遮罩 -->
+    <div id="overlay"></div>
+    <div id="videoPlayer">
+        <button id="closeVideo">×</button>
+        <video controls></video>
+    </div>
+
+    <!-- 脚本引用 -->
+    <script src="rpm-manager.js"></script>
+    <script src="scene.js"></script>
+    <script src="recording.js"></script>
+    <script src="subtitle.js"></script>
+    <script src="chat.js"></script>
+    <script src="ui.js"></script>
+    <script src="main.js"></script>
+</body>
+</html> 

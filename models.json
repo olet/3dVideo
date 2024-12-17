@@ -1,0 +1,76 @@
+{
+    "flamingo": {
+        "id": "flamingo",
+        "name": "火烈鸟",
+        "url": "https://threejs.org/examples/models/gltf/Flamingo.glb",
+        "icon": "🦩",
+        "scale": 0.01
+    },
+    "parrot": {
+        "id": "parrot",
+        "name": "鹦鹉",
+        "url": "https://threejs.org/examples/models/gltf/Parrot.glb",
+        "icon": "🦜",
+        "scale": 0.015
+    },
+    "stork": {
+        "id": "stork",
+        "name": "鹳",
+        "url": "https://threejs.org/examples/models/gltf/Stork.glb",
+        "icon": "🦢",
+        "scale": 0.01
+    },
+    "female": {
+        "id": "female",
+        "name": "女性角色",
+        "url": "https://models.readyplayer.me/675da4f848952817992bdab3.glb",
+        "icon": "👩",
+        "scale": 2.0,
+        "type": "female",
+        "animations": [
+            {
+                "name": "defeated",
+                "url": "./animations/Defeated.fbx",
+                "duration": 2.5
+            },
+            {
+                "name": "dancing",
+                "url": "./animations/Rumba Dancing.fbx",
+                "duration": 4.0
+            },
+            {
+                "name": "reaction",
+                "url": "./animations/Shoved Reaction With Spin.fbx",
+                "duration": 1.8
+            }
+        ]
+    },
+    "female2": {
+        "id": "female2",
+        "name": "女性角色2",
+        "url": "https://models.readyplayer.me/675da60ce1dbcc33e6adc4e0.glb",
+        "icon": "👩",
+        "scale": 1.0,
+        "type": "female2"
+    },
+    "rpm_character": {
+        "id": "rpm_character",
+        "name": "自定义角色",
+        "url": "dynamic",
+        "icon": "👤",
+        "scale": 1.0,
+        "type": "character",
+        "useRPM": true,
+        "subdomain": "olet.readyplayer.me"
+    },
+    "preset_avatar_1": {
+        "name": "预设角色1",
+        "url": "https://api.readyplayer.me/v1/avatars/...",
+        "scale": 1.0
+    },
+    "preset_avatar_2": {
+        "name": "预设角色2",
+        "url": "https://api.readyplayer.me/v1/avatars/...",
+        "scale": 1.0
+    }
+} 
